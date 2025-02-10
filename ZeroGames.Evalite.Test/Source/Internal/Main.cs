@@ -128,6 +128,31 @@ Assert("Sqrt(Sqrt(16))", 2.0, ref suc, ref fail, context); // 复合函数调用
 Assert("Pow(Sqrt(4), 2)", 4.0, ref suc, ref fail, context); // 多参数函数调用
 Assert("Pi()", Math.PI, ref suc, ref fail, context);
 
+// 布尔字面量测试
+Assert("true", true, ref suc, ref fail);
+Assert("false", false, ref suc, ref fail);
+
+// 比较运算符测试
+Assert("1 == 1", true, ref suc, ref fail);
+Assert("1 != 2", true, ref suc, ref fail);
+Assert("2 > 1", true, ref suc, ref fail);
+Assert("1 < 2", true, ref suc, ref fail);
+Assert("2 >= 2", true, ref suc, ref fail);
+Assert("1 <= 1", true, ref suc, ref fail);
+
+// 逻辑运算符测试
+Assert("true && true", true, ref suc, ref fail);
+Assert("true || false", true, ref suc, ref fail);
+Assert("!false", true, ref suc, ref fail);
+
+// 复杂表达式测试
+Assert("1 < 2 && 3 > 2", true, ref suc, ref fail);
+Assert("!(1 > 2) && 3 != 2", true, ref suc, ref fail);
+Assert("(1 <= 2 && 2 <= 3) || false", true, ref suc, ref fail);
+
+// 混合运算测试
+Assert("1 + 2 > 2 && 3 * 2 <= 6", true, ref suc, ref fail);
+
 ForegroundColor = fail > 0 ? ConsoleColor.Red : ConsoleColor.Green;
 WriteLine($"Total: {suc + fail} Suc: {suc} Fail: {fail}");
 ResetColor();
@@ -153,20 +178,11 @@ internal class TestContext : BaseContext
 
 internal static class TestHelper
 {
-	public static void Assert(string expression, object expected, ref int32 suc, ref int32 fail, IContext? context = null)
+	public static void Assert<TResult>(string expression, TResult expected, ref int32 suc, ref int32 fail, IContext? context = null)
 	{
 		try
 		{
-			object actual;
-			if (expected is int32)
-			{
-				actual = new Compiler().Compile<int32>(expression, context)();
-			}
-			else
-			{
-				actual = new Compiler().Compile<double>(expression, context)();
-			}
-			
+			TResult actual = new Compiler().Compile<TResult>(expression, context)();
 			if (Equals(actual, expected))
 			{
 				ForegroundColor = ConsoleColor.Green;
@@ -180,12 +196,12 @@ internal static class TestHelper
 				++fail;
 			}
 		}
-		catch (Exception ex)
-		{
-			ForegroundColor = ConsoleColor.Red;
-			WriteLine($"Assertion failed: {expression} is illegal{Environment.NewLine}{ex}");
-			++fail;
-		}
+		// catch (Exception ex)
+		// {
+		// 	ForegroundColor = ConsoleColor.Red;
+		// 	WriteLine($"Assertion failed: {expression} is illegal{Environment.NewLine}{ex}");
+		// 	++fail;
+		// }
 		finally
 		{
 			ResetColor();
@@ -213,12 +229,12 @@ internal static class TestHelper
 				++fail;
 			}
 		}
-		catch (Exception ex)
-		{
-			ForegroundColor = ConsoleColor.Red;
-			WriteLine($"Assertion failed: {expression} with {paramName}={paramValue} is illegal{Environment.NewLine}{ex}");
-			++fail;
-		}
+		// catch (Exception ex)
+		// {
+		// 	ForegroundColor = ConsoleColor.Red;
+		// 	WriteLine($"Assertion failed: {expression} with {paramName}={paramValue} is illegal{Environment.NewLine}{ex}");
+		// 	++fail;
+		// }
 		finally
 		{
 			ResetColor();

@@ -67,6 +67,11 @@ public partial class Compiler
 					ProcessNumberNode(expressionContext);
 					break;
 				}
+				case ENodeType.Boolean:
+				{
+					ProcessBooleanNode(expressionContext);
+					break;
+				}
 				case ENodeType.Operator:
 				{
 					ProcessOperatorNode(expressionContext);
@@ -107,13 +112,22 @@ public partial class Compiler
 		=> context.Stack.Push(Expression.Constant(double.Parse(context.CurrentNode.Value)));
 	
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private void ProcessBooleanNode(in ExpressionContext context)
+		=> context.Stack.Push(Expression.Constant(bool.Parse(context.CurrentNode.Value)));
+	
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void ProcessOperatorNode(in ExpressionContext context)
 	{
 		string op = context.CurrentNode.Value;
-		if (op is "u+" or "u-")
+		if (op is "u+" or "u-" or "!")
 		{
 			Expression operand = context.Stack.Pop();
-			Expression operation = op == "u-" ? Expression.Negate(operand) : operand;
+			Expression operation = op switch
+			{
+				"u-" => Expression.Negate(operand),
+				"!" => Expression.Not(operand),
+				_ => operand
+			};
 			context.Stack.Push(operation);
 		}
 		else
@@ -123,12 +137,33 @@ public partial class Compiler
 			bool integer = left.Type == typeof(int64) && right.Type == typeof(int64);
 			Expression operation = op switch
 			{
-				"+" => integer ? Expression.Add(left, right) : Expression.Add(ToDouble(left), ToDouble(right)),
-				"-" => integer ? Expression.Subtract(left, right) : Expression.Subtract(ToDouble(left), ToDouble(right)),
-				"*" => integer ? Expression.Multiply(left, right) : Expression.Multiply(ToDouble(left), ToDouble(right)),
-				"/" => integer ? Expression.Divide(left, right) : Expression.Divide(ToDouble(left), ToDouble(right)),
-				"%" => integer ? Expression.Modulo(left, right) : Expression.Modulo(ToDouble(left), ToDouble(right)),
+				// Boolean operators
+				"&&" => Expression.AndAlso(left, right),
+				"||" => Expression.OrElse(left, right),
+				
+				// Integer operators
+				"+" when integer => Expression.Add(left, right),
+				"-" when integer => Expression.Subtract(left, right),
+				"*" when integer => Expression.Multiply(left, right),
+				"/" when integer => Expression.Divide(left, right),
+				"%" when integer => Expression.Modulo(left, right),
+				
+				// Number operators
+				"+" => Expression.Add(ToDouble(left), ToDouble(right)),
+				"-" => Expression.Subtract(ToDouble(left), ToDouble(right)),
+				"*" => Expression.Multiply(ToDouble(left), ToDouble(right)),
+				"/" => Expression.Divide(ToDouble(left), ToDouble(right)),
+				"%" => Expression.Modulo(ToDouble(left), ToDouble(right)),
 				"^" => Expression.Power(ToDouble(left), ToDouble(right)),
+				
+				// Relation operators
+				"==" => Expression.Equal(left, right),
+				"!=" => Expression.NotEqual(left, right),
+				">" => Expression.GreaterThan(left, right),
+				"<" => Expression.LessThan(left, right),
+				">=" => Expression.GreaterThanOrEqual(left, right),
+				"<=" => Expression.LessThanOrEqual(left, right),
+				
 				_ => throw new NotSupportedException($"Operator {op} is not supported.")
 			};
 

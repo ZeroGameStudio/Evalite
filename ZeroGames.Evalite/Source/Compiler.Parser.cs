@@ -23,6 +23,7 @@ public partial class Compiler
 		None,
 		Integer,
 		Number,
+		Boolean,
 		Operator,
 		Function,
 		Variable,
@@ -61,6 +62,7 @@ public partial class Compiler
 			{
 				case ETokenType.Integer:
 				case ETokenType.Number:
+				case ETokenType.Boolean:
 				{
 					ParseLiteral(ref context);
 					break;
@@ -116,6 +118,7 @@ public partial class Compiler
 		{
 			ETokenType.Integer => ENodeType.Integer,
 			ETokenType.Number => ENodeType.Number,
+			ETokenType.Boolean => ENodeType.Boolean,
 			_ => throw context.Exception(),
 		};
 		context.Output.Add(new(type, context.CurrentToken.Value));
@@ -126,10 +129,10 @@ public partial class Compiler
 	private void ParseOperator(ref ParserContext context)
 	{
 		string value = context.CurrentToken.Value;
-		if (value is "+" or "-" && context.ExpectsOperand)
+		if (value is "+" or "-" or "!" && context.ExpectsOperand)
 		{
 			// Unary operators
-			context.OperatorStack.Push(context.CurrentToken with { Value = 'u' + value });
+			context.OperatorStack.Push(context.CurrentToken with { Value = value == "!" ? "!" : 'u' + value });
 		}
 		else
 		{
@@ -201,17 +204,36 @@ public partial class Compiler
 
 	private static readonly Dictionary<string, Operator> _operatorMap = new()
 	{
-		["+"] = new(1, false),
-		["-"] = new(1, false),
+		// 逻辑或
+		["||"] = new(1, false),
 		
-		["*"] = new(2, false),
-		["/"] = new(2, false),
-		["%"] = new(2, false),
+		// 逻辑与
+		["&&"] = new(2, false),
 		
-		["^"] = new(3, true),
+		// 比较运算符
+		["=="] = new(3, false),
+		["!="] = new(3, false),
 		
-		["u+"] = new(4, false),
-		["u-"] = new(4, false),
+		// 关系运算符
+		[">"] = new(4, false),
+		["<"] = new(4, false),
+		[">="] = new(4, false),
+		["<="] = new(4, false),
+		
+		// 算术运算符
+		["+"] = new(5, false),
+		["-"] = new(5, false),
+		
+		["*"] = new(6, false),
+		["/"] = new(6, false),
+		["%"] = new(6, false),
+		
+		["^"] = new(7, true),
+		
+		// 一元运算符
+		["u+"] = new(8, false),
+		["u-"] = new(8, false),
+		["!"] = new(8, false),
 	};
 
 }

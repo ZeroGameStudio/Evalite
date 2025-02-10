@@ -13,6 +13,7 @@ public partial class Compiler
 		None,
 		Integer,
 		Number,
+		Boolean,
 		Operator,
 		LeftParen,
 		RightParen,
@@ -24,7 +25,16 @@ public partial class Compiler
 
 	private readonly struct LexerContext
 	{
+		public void Eat(int32 count = 1)
+		{
+			for (int32 i = 0; i < count; ++i)
+			{
+				Next();
+			}
+		}
+		
 		public required Func<char> Peek { get; init; }
+		public required Func<string> PeekWord { get; init; }
 		public required Func<char> Next { get; init; }
 		public required Func<char, char> Expect { get; init; }
 		public required Func<Exception> Exception { get; init; }
@@ -35,12 +45,25 @@ public partial class Compiler
 		string trimmed = expression.Replace(" ", "");
 		int32 i = 0;
 
+		Func<Exception> exception = () => new ArgumentException($"Expression '{expression}' is illegal.", nameof(expression));
 		LexerContext context = new()
 		{
 			Peek = () => i < trimmed.Length ? trimmed[i] : '\0',
+			PeekWord = () =>
+			{
+				StringBuilder sb = new();
+				char c;
+				int32 j = 0;
+				while (i + j < trimmed.Length && char.IsLetter(c = trimmed[i + j]))
+				{
+					sb.Append(c);
+					++j;
+				}
+				return sb.ToString();
+			},
 			Next = () => i < trimmed.Length ? trimmed[i++] : '\0',
-			Expect = expected => trimmed[i++] == expected ? expected : throw new ArgumentException($"Expression '{expression}' is illegal.", nameof(expression)),
-			Exception = () => new ArgumentException($"Expression '{expression}' is illegal.", nameof(expression)),
+			Expect = expected => trimmed[i++] == expected ? expected : throw exception(),
+			Exception = exception,
 		};
 
 		while (i < trimmed.Length)
@@ -52,20 +75,20 @@ public partial class Compiler
 			}
 			else if (c is '(')
 			{
-				context.Next();
+				context.Eat();
 				yield return new(ETokenType.LeftParen, string.Empty);
 			}
 			else if (c is ')')
 			{
-				context.Next();
+				context.Eat();
 				yield return new(ETokenType.RightParen, string.Empty);
 			}
 			else if (c is ',')
 			{
-				context.Next();
+				context.Eat();
 				yield return new(ETokenType.Comma, string.Empty);
 			}
-			else if (c is '+' or '-' or '*' or '/' or '^' or '%')
+			else if (c is '+' or '-' or '*' or '/' or '^' or '%' or '=' or '!' or '>' or '<' or '&' or '|')
 			{
 				yield return ReadOperatorToken(context);
 			}
@@ -75,7 +98,16 @@ public partial class Compiler
 			}
 			else if (char.IsLetter(c) || c is '_')
 			{
-				yield return ReadIdentifierToken(context);
+				string word = context.PeekWord();
+				if (word is "true" or "false")
+				{
+					context.Eat(word.Length);
+					yield return new(ETokenType.Boolean, word);
+				}
+				else
+				{
+					yield return ReadIdentifierToken(context);
+				}
 			}
 			else
 			{
@@ -85,7 +117,23 @@ public partial class Compiler
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private Token ReadOperatorToken(in LexerContext context) => new(ETokenType.Operator, context.Next().ToString());
+	private Token ReadOperatorToken(in LexerContext context)
+	{
+		char first = context.Next();
+		char second = context.Peek();
+		
+		return first switch
+		{
+			'=' when second == '=' => new(ETokenType.Operator, "=" + context.Next()),
+			'!' when second == '=' => new(ETokenType.Operator, "!" + context.Next()),
+			'>' when second == '=' => new(ETokenType.Operator, ">" + context.Next()),
+			'<' when second == '=' => new(ETokenType.Operator, "<" + context.Next()),
+			'&' when second == '&' => new(ETokenType.Operator, "&" + context.Next()),
+			'|' when second == '|' => new(ETokenType.Operator, "|" + context.Next()),
+			'+' or '-' or '*' or '/' or '^' or '%' or '>' or '<' or '!' => new(ETokenType.Operator, first.ToString()),
+			_ => throw context.Exception()
+		};
+	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private Token ReadNumberToken(in LexerContext context)
@@ -122,7 +170,7 @@ public partial class Compiler
 				sb.Append(context.Next());
 				state = STATE_EXPONENT;
 
-				if ((c = context.Peek()) is '+' or '-')
+				if (context.Peek() is '+' or '-')
 				{
 					sb.Append(context.Next());
 				}
@@ -161,7 +209,7 @@ public partial class Compiler
 
 		return new(type, sb.ToString());
 	}
-	
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private Token ReadIdentifierToken(in LexerContext context)
 	{
