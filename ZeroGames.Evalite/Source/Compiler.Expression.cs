@@ -178,7 +178,7 @@ public partial class Compiler
 		string functionName = pair[0];
 		int32 numParameters = int32.Parse(pair[1]);
 		Expression[] functionParameterExpressions = new Expression[numParameters];
-		for (int32 i = 0; i < numParameters; ++i)
+		for (int32 i = numParameters - 1; i >= 0; --i)
 		{
 			functionParameterExpressions[i] = context.Stack.Pop();
 		}
