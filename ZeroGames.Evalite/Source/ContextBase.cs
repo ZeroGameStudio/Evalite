@@ -14,17 +14,45 @@ public abstract class ContextBase : IContext
 		if (TryGetMethod(name, out var method))
 		{
 			ParameterInfo[] parameterInfos = method.GetParameters();
-			if (parameterInfos.Length != parameters.Length)
+			if (parameterInfos.Length > parameters.Length)
 			{
 				throw new ArgumentOutOfRangeException();
 			}
 
-			int32 i = 0;
-			return Expression.Call(!method.IsStatic ? Expression.Constant(this) : null, method, parameters.Select(p =>
+			if (parameterInfos.Length == parameters.Length)
 			{
-				Type parameterType = parameterInfos[i].ParameterType;
-				return p.Type == parameterType ? p : Expression.Convert(p, parameterType);
-			}).ToArray());
+				int32 i = 0;
+				return Expression.Call(!method.IsStatic ? Expression.Constant(this) : null, method, parameters
+					.Select(p =>
+					{
+						Type parameterType = parameterInfos[i++].ParameterType;
+						return p.Type == parameterType ? p : Expression.Convert(p, parameterType);
+					})
+					.ToArray());
+			}
+			else if (parameterInfos[^1].ParameterType is { IsArray: true } lastParameterType)
+			{
+				Type elementType = lastParameterType.GetElementType()!;
+				int32 numFixedParameters = parameterInfos.Length - 1;
+			
+				Expression arrayExpression = Expression.NewArrayInit(elementType, parameters[numFixedParameters..]
+					.Select(p => p.Type == elementType ? p : Expression.Convert(p, elementType)));
+
+				int32 i = 0;
+				return Expression.Call(!method.IsStatic ? Expression.Constant(this) : null, method, parameters
+					.Take(numFixedParameters)
+					.Select(p =>
+					{
+						Type parameterType = parameterInfos[i++].ParameterType;
+						return p.Type == parameterType ? p : Expression.Convert(p, parameterType);
+					})
+					.Append(arrayExpression)
+					.ToArray());
+			}
+			else
+			{
+				throw new ArgumentOutOfRangeException();
+			}
 		}
 
 		throw new KeyNotFoundException();

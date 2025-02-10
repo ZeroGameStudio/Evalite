@@ -127,6 +127,7 @@ Assert("Sqrt(4)", 2.0, ref suc, ref fail, context); // 简单函数调用
 Assert("Sqrt(Sqrt(16))", 2.0, ref suc, ref fail, context); // 复合函数调用
 Assert("Pow(Sqrt(4), 2)", 4.0, ref suc, ref fail, context); // 多参数函数调用
 Assert("Pi()", Math.PI, ref suc, ref fail, context);
+Assert("Sum(1,2,3,4)", 10.0, ref suc, ref fail, context);
 
 // 布尔字面量测试
 Assert("true", true, ref suc, ref fail);
@@ -174,6 +175,7 @@ internal class TestContext : BaseContext
 	private static double Sqrt(double x) => Math.Sqrt(x);
 	private static double Pow(double x, double p) => Math.Pow(x, p);
 	private static double Pi() => Math.PI;
+	private static double Sum(params double[] values) => values.Sum();
 }
 
 internal static class TestHelper
