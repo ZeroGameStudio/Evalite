@@ -1,7 +1,6 @@
 ﻿// Copyright Zero Games. All Rights Reserved.
 
 using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
 using System.Reflection;
 
 namespace ZeroGames.Evalite;
@@ -9,7 +8,7 @@ namespace ZeroGames.Evalite;
 public abstract class ContextBase : IContext
 {
 	
-	public Expression CallMethod(string name, params Expression[] parameters)
+	public object Call(string name, params object[] parameters)
 	{
 		if (TryGetMethod(name, out var method))
 		{
@@ -21,33 +20,15 @@ public abstract class ContextBase : IContext
 
 			if (parameterInfos.Length == parameters.Length)
 			{
-				int32 i = 0;
-				return Expression.Call(!method.IsStatic ? Expression.Constant(this) : null, method, parameters
-					.Select(p =>
-					{
-						Type parameterType = parameterInfos[i++].ParameterType;
-						return p.Type == parameterType ? p : Expression.Convert(p, parameterType);
-					})
-					.ToArray());
+				return method.Invoke(this, parameters)!;
 			}
 			else if (parameterInfos[^1].ParameterType is { IsArray: true } lastParameterType)
 			{
 				Type elementType = lastParameterType.GetElementType()!;
 				int32 numFixedParameters = parameterInfos.Length - 1;
-			
-				Expression arrayExpression = Expression.NewArrayInit(elementType, parameters[numFixedParameters..]
-					.Select(p => p.Type == elementType ? p : Expression.Convert(p, elementType)));
-
-				int32 i = 0;
-				return Expression.Call(!method.IsStatic ? Expression.Constant(this) : null, method, parameters
-					.Take(numFixedParameters)
-					.Select(p =>
-					{
-						Type parameterType = parameterInfos[i++].ParameterType;
-						return p.Type == parameterType ? p : Expression.Convert(p, parameterType);
-					})
-					.Append(arrayExpression)
-					.ToArray());
+				Array paramArray = Array.CreateInstance(elementType, parameters.Length - numFixedParameters);
+				parameters.Skip(numFixedParameters).Select(p => Convert.ChangeType(p, elementType)).ToArray().CopyTo(paramArray, 0);
+				return method.Invoke(this, parameters.Take(numFixedParameters).Append(paramArray).ToArray())!;
 			}
 			else
 			{
@@ -58,19 +39,34 @@ public abstract class ContextBase : IContext
 		throw new KeyNotFoundException();
 	}
 
-	public Expression ReadProperty(string name)
+	public object Read(string name)
 	{
 		if (TryGetProperty(name, out var property))
 		{
-			return Expression.Property(!property.GetMethod!.IsStatic ? Expression.Constant(this) : null, property);
+			return property.GetValue(this)!;
 		}
 
 		throw new KeyNotFoundException();
 	}
 
-	public bool HasProperty(string name)
+	public Type GetFunctionReturnType(string name)
 	{
-		return TryGetProperty(name, out _);
+		if (TryGetMethod(name, out var method))
+		{
+			return method.ReturnType;
+		}
+
+		return typeof(object);
+	}
+
+	public Type GetPropertyType(string name)
+	{
+		if (TryGetProperty(name, out var property))
+		{
+			return property.PropertyType;
+		}
+
+		return typeof(object);
 	}
 
 	private bool TryGetMethod(string name, [NotNullWhen(true)] out MethodInfo? method)
@@ -85,17 +81,20 @@ public abstract class ContextBase : IContext
 
 	private TypeMetadataCache GetOrCacheTypeMetadata(Type type)
 	{
-		if (_typeMetadataCache.TryGetValue(type, out var existing))
+		if (_typeMetadataCache.TryGetValue(type, out var metadata))
 		{
-			return existing;
+			return metadata;
 		}
 
 		BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
-		return new()
+		metadata = new()
 		{
-			MethodCache = type.GetMethods(bindingFlags).ToDictionary(m => m.Name),
+			MethodCache = type.GetMethods(bindingFlags).Where(m => m.ReturnType != typeof(void)).ToDictionary(m => m.Name),
 			PropertyCache = type.GetProperties(bindingFlags).Where(p => p.CanRead).ToDictionary(p => p.Name),
 		};
+		_typeMetadataCache[type] = metadata;
+		
+		return metadata;
 	}
 
 	private readonly struct TypeMetadataCache

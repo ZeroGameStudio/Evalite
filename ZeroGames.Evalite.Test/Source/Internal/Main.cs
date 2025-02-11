@@ -111,7 +111,7 @@ Assert("StaticValue", 2.718, ref suc, ref fail, context);    // 静态属性
 Assert("BaseValueProp", 10.0, ref suc, ref fail, context);   // 继承的属性
 
 // 测试属性与参数组合使用
-AssertWithParam<int32, double>("x + PublicValue", "x", 8, 50.0, ref suc, ref fail, context);  // 参数和context属性相加
+AssertWithParam<int32, int32>("x + PublicValue", "x", 8, 50, ref suc, ref fail, context);  // 参数和context属性相加
 AssertWithParam<double, double>("x * PrivateValue", "x", 2.0, 6.28, ref suc, ref fail, context);  // 参数和context属性相乘
 
 // 测试多个context属性组合
@@ -157,6 +157,10 @@ Assert("1 + 2 > 2 && 3 * 2 <= 6", true, ref suc, ref fail);
 Assert("IfElse(1 > 2, 5.0, IfElse(2 >= 2, true, 123e-2))", (object)true, ref suc, ref fail, context);
 Assert("Select(1+1, true, 1.5, 2e2, -7)", (object)200.0, ref suc, ref fail, context);
 
+// 测试成员嵌套
+Assert("InnerContext.Int * 100.5", 90 * 100.5, ref suc, ref fail, context);
+AssertWithParam<int32, double>("InnerContext.Exp(PrivateValue-p)", "p", 1, Math.Exp(3.14-1), ref suc, ref fail, context);
+
 ForegroundColor = fail > 0 ? ConsoleColor.Red : ConsoleColor.Green;
 WriteLine($"Total: {suc + fail} Suc: {suc} Fail: {fail}");
 ResetColor();
@@ -180,7 +184,15 @@ internal class TestContext : BaseContext
 	private static double Pi() => Math.PI;
 	private static double Sum(params double[] values) => values.Sum();
 	private static object IfElse(bool condition, object trueValue, object falseValue) => condition ? trueValue : falseValue;
-	private static object Select(int32 index, object[] values) => values[index];
+	private static object Select(int64 index, object[] values) => values[index];
+
+	public InnerContext InnerContext { get; } = new();
+}
+
+internal class InnerContext : ContextBase
+{
+	public int32 Int { get; } = 90;
+	public static double Exp(double x) => Math.Exp(x);
 }
 
 internal static class TestHelper

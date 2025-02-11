@@ -1,6 +1,7 @@
 ﻿// Copyright Zero Games. All Rights Reserved.
 
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
@@ -18,8 +19,6 @@ public partial class Compiler
 		public required IContext? Context { get; init; }
 		public required Dictionary<string, Expression> ParameterMap { get; init; }
 	}
-	
-	private static Expression ToDouble(Expression expr) => expr.Type == typeof(double) ? expr : Expression.Convert(expr, typeof(double));
 	
 	private object InternalCompile(string expression, IContext? context, Type returnType, params Parameter[] parameters)
 	{
@@ -99,8 +98,7 @@ public partial class Compiler
 			throw new InvalidOperationException("Failed to build expression tree.");
 		}
 
-		Expression expr = expressionContext.Stack.Pop();
-		return expr.Type == type ? expr : Expression.Convert(expr, type);
+		return expressionContext.Stack.Pop().As(type);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -134,27 +132,21 @@ public partial class Compiler
 		{
 			Expression right = context.Stack.Pop();
 			Expression left = context.Stack.Pop();
-			bool integer = left.Type == typeof(int64) && right.Type == typeof(int64);
+			bool sameType = left.Type == right.Type;
 			Expression operation = op switch
 			{
-				// Boolean operators
-				"&&" => Expression.AndAlso(left, right),
-				"||" => Expression.OrElse(left, right),
-				
-				// Integer operators
-				"+" when integer => Expression.Add(left, right),
-				"-" when integer => Expression.Subtract(left, right),
-				"*" when integer => Expression.Multiply(left, right),
-				"/" when integer => Expression.Divide(left, right),
-				"%" when integer => Expression.Modulo(left, right),
-				
-				// Number operators
-				"+" => Expression.Add(ToDouble(left), ToDouble(right)),
-				"-" => Expression.Subtract(ToDouble(left), ToDouble(right)),
-				"*" => Expression.Multiply(ToDouble(left), ToDouble(right)),
-				"/" => Expression.Divide(ToDouble(left), ToDouble(right)),
-				"%" => Expression.Modulo(ToDouble(left), ToDouble(right)),
-				"^" => Expression.Power(ToDouble(left), ToDouble(right)),
+				// Arithmetic operators
+				"+" when sameType => Expression.Add(left, right),
+				"-" when sameType => Expression.Subtract(left, right),
+				"*" when sameType => Expression.Multiply(left, right),
+				"/" when sameType => Expression.Divide(left, right),
+				"%" when sameType => Expression.Modulo(left, right),
+				"+" => Expression.Add(left.As<double>(), right.As<double>()),
+				"-" => Expression.Subtract(left.As<double>(), right.As<double>()),
+				"*" => Expression.Multiply(left.As<double>(), right.As<double>()),
+				"/" => Expression.Divide(left.As<double>(), right.As<double>()),
+				"%" => Expression.Modulo(left.As<double>(), right.As<double>()),
+				"^" => Expression.Power(left.As<double>(), right.As<double>()),
 				
 				// Relation operators
 				"==" => Expression.Equal(left, right),
@@ -163,6 +155,10 @@ public partial class Compiler
 				"<" => Expression.LessThan(left, right),
 				">=" => Expression.GreaterThanOrEqual(left, right),
 				"<=" => Expression.LessThanOrEqual(left, right),
+				
+				// Boolean operators
+				"&&" => Expression.AndAlso(left, right),
+				"||" => Expression.OrElse(left, right),
 				
 				_ => throw new NotSupportedException($"Operator {op} is not supported.")
 			};
@@ -174,44 +170,79 @@ public partial class Compiler
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void ProcessFunctionNode(in ExpressionContext context)
 	{
-		string[] pair = context.CurrentNode.Value.Split(':');
-		string functionName = pair[0];
-		int32 numParameters = int32.Parse(pair[1]);
-		Expression[] functionParameterExpressions = new Expression[numParameters];
-		for (int32 i = numParameters - 1; i >= 0; --i)
-		{
-			functionParameterExpressions[i] = context.Stack.Pop();
-		}
-					
 		if (context.Context is null)
 		{
 			throw new ArgumentException("Function call requires a context", nameof(context));
 		}
-				
-		context.Stack.Push(context.Context.CallMethod(functionName, functionParameterExpressions));
+
+		string[] pair = context.CurrentNode.Value.Split(':');
+		int32 numParameters = int32.Parse(pair[1]);
+		Expression[] parameterExpressions = new Expression[numParameters];
+		// Fill parameters from right to left.
+		for (int32 i = numParameters - 1; i >= 0; --i)
+		{
+			parameterExpressions[i] = context.Stack.Pop().As<object>();
+		}
+
+		string[] pathNodes = pair[0].Split('.');
+		string functionName = pathNodes[^1];
+		Expression expression = pathNodes.Length > 1 ? ProcessPath(pathNodes.SkipLast(1), context).As<IContext>() : Expression.Constant(context.Context);
+		expression = Expression.Call(expression, _contextCall, Expression.Constant(functionName), Expression.NewArrayInit(typeof(object), parameterExpressions));
+		if (pathNodes.Length == 1)
+		{
+			expression = expression.As(context.Context.GetFunctionReturnType(functionName));
+		}
+		
+		context.Stack.Push(expression);
 	}
 	
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void ProcessVariableNode(in ExpressionContext context)
 	{
-		string variableName = context.CurrentNode.Value;
-		if (context.ParameterMap.TryGetValue(variableName, out var parameterExpression))
+		Expression expression = ProcessPath(context.CurrentNode.Value.Split('.'), context);
+		context.Stack.Push(expression);
+	}
+
+	private Expression ProcessPath(IEnumerable<string> pathNodes, in ExpressionContext context)
+	{
+		Expression result = null!;
+
+		bool first = true;
+		foreach (var node in pathNodes)
 		{
-			context.Stack.Push(parameterExpression);
+			if (first)
+			{
+				first = false;
+				
+				if (context.ParameterMap.TryGetValue(node, out var parameterExpression))
+				{
+					result = parameterExpression;
+				}
+				else if (context.Context is not null)
+				{
+					result = Expression.Constant(context.Context);
+					result = Expression.Call(result, _contextRead, Expression.Constant(node)).As(context.Context.GetPropertyType(node));
+				}
+				else
+				{
+					throw new InvalidOperationException($"Unknown identifier '{node}'.");
+				}
+			}
+			else
+			{
+				result = Expression.Call(result.As<IContext>(), _contextRead, Expression.Constant(node));
+			}
 		}
-		else if (context.Context is not null)
-		{
-			context.Stack.Push(context.Context.ReadProperty(variableName));
-		}
-		else
-		{
-			throw new InvalidOperationException($"Unknown variable '{variableName}'.");
-		}
+
+		return result;
 	}
 	
 	[GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]*$")]
 	private static partial Regex _identifierRegex { get; }
-	
+
+	private static readonly MethodInfo _contextCall = typeof(IContext).GetMethod(nameof(IContext.Call))!;
+	private static readonly MethodInfo _contextRead = typeof(IContext).GetMethod(nameof(IContext.Read))!;
+
 }
 
 

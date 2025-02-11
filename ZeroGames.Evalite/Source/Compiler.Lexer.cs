@@ -216,15 +216,35 @@ public partial class Compiler
 	{
 		StringBuilder sb = new();
 		sb.Append(context.Next());
+		
 		char c;
+		bool allowsSeparator = true;
 		while ((c = context.Peek()) != '\0')
 		{
-			if (!char.IsLetterOrDigit(c) && c is not '_')
+			if (char.IsLetterOrDigit(c) || c is '_')
+			{
+				sb.Append(context.Next());
+				allowsSeparator = true;
+			}
+			else if (c is '.')
+			{
+				if (!allowsSeparator)
+				{
+					throw context.Exception();
+				}
+				
+				sb.Append(context.Next());
+				allowsSeparator = false;
+			}
+			else
 			{
 				break;
 			}
-
-			sb.Append(context.Next());
+		}
+		
+		if (!allowsSeparator)
+		{
+			throw context.Exception();
 		}
 		
 		return new(ETokenType.Identifier, sb.ToString());

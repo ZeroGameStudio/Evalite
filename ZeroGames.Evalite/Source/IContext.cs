@@ -1,15 +1,14 @@
 ﻿// Copyright Zero Games. All Rights Reserved.
 
-using System.Linq.Expressions;
-
 namespace ZeroGames.Evalite;
 
 public interface IContext
 {
-	Expression CallMethod(string name, params Expression[] parameters);
-	Expression ReadProperty(string name);
+	object Call(string name, params object[] parameters);
+	object Read(string name);
 	
-	bool HasProperty(string name);
+	Type GetFunctionReturnType(string name);
+	Type GetPropertyType(string name);
 }
 
 
