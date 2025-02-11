@@ -34,7 +34,7 @@ public partial class Compiler
 		}
 		
 		public required Func<char> Peek { get; init; }
-		public required Func<string> PeekWord { get; init; }
+		public required Func<int32, string> PeekWord { get; init; }
 		public required Func<char> Next { get; init; }
 		public required Func<char, char> Expect { get; init; }
 		public required Func<Exception> Exception { get; init; }
@@ -49,12 +49,13 @@ public partial class Compiler
 		LexerContext context = new()
 		{
 			Peek = () => i < trimmed.Length ? trimmed[i] : '\0',
-			PeekWord = () =>
+			PeekWord = maxNumLetters =>
 			{
 				StringBuilder sb = new();
 				char c;
 				int32 j = 0;
-				while (i + j < trimmed.Length && char.IsLetter(c = trimmed[i + j]))
+				int32 endIndex = Math.Min(i + maxNumLetters, trimmed.Length);
+				while (i + j < endIndex && char.IsLetter(c = trimmed[i + j]))
 				{
 					sb.Append(c);
 					++j;
@@ -98,7 +99,7 @@ public partial class Compiler
 			}
 			else if (char.IsLetter(c) || c is '_')
 			{
-				string word = context.PeekWord();
+				string word = context.PeekWord(5);
 				if (word is "true" or "false")
 				{
 					context.Eat(word.Length);

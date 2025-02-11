@@ -154,7 +154,8 @@ Assert("(1 <= 2 && 2 <= 3) || false", true, ref suc, ref fail);
 // 混合运算测试
 Assert("1 + 2 > 2 && 3 * 2 <= 6", true, ref suc, ref fail);
 
-Assert("If(1 > 2, 5.0, true)", (object)true, ref suc, ref fail, context);
+Assert("IfElse(1 > 2, 5.0, IfElse(2 >= 2, true, 123e-2))", (object)true, ref suc, ref fail, context);
+Assert("Select(1+1, true, 1.5, 2e2, -7)", (object)200.0, ref suc, ref fail, context);
 
 ForegroundColor = fail > 0 ? ConsoleColor.Red : ConsoleColor.Green;
 WriteLine($"Total: {suc + fail} Suc: {suc} Fail: {fail}");
@@ -178,7 +179,8 @@ internal class TestContext : BaseContext
 	private static double Pow(double x, double p) => Math.Pow(x, p);
 	private static double Pi() => Math.PI;
 	private static double Sum(params double[] values) => values.Sum();
-	private static object If(bool condition, object trueValue, object falseValue) => condition ? trueValue : falseValue;
+	private static object IfElse(bool condition, object trueValue, object falseValue) => condition ? trueValue : falseValue;
+	private static object Select(int32 index, object[] values) => values[index];
 }
 
 internal static class TestHelper
