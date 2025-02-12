@@ -161,6 +161,37 @@ Assert("Select(1+1, true, 1.5, 2e2, -7)", (object)200.0, ref suc, ref fail, cont
 Assert("InnerContext.Int * 100.5", 90 * 100.5, ref suc, ref fail, context);
 AssertWithParam<int32, double>("InnerContext.Exp(PrivateValue-p)", "p", 1, Math.Exp(3.14-1), ref suc, ref fail, context);
 
+// String literal tests
+WriteLine("\nString Literal Tests:");
+
+// Basic string literals
+Assert("\"Hello, world!\"", "Hello, world!", ref suc, ref fail);
+Assert("'Hello, world!'", "Hello, world!", ref suc, ref fail);
+
+// Empty strings
+Assert("\"\"", "", ref suc, ref fail);
+Assert("''", "", ref suc, ref fail);
+
+// Escape sequences
+Assert("\"\\n\"", "\n", ref suc, ref fail);          // Newline
+Assert("\"\\r\"", "\r", ref suc, ref fail);          // Carriage return
+Assert("\"\\t\"", "\t", ref suc, ref fail);          // Tab
+Assert("\"\\\\\"", "\\", ref suc, ref fail);         // Backslash
+
+// Quote escaping
+Assert("\"He said \\\"Hello\\\"\"", "He said \"Hello\"", ref suc, ref fail);     // Escape double quotes in double-quoted string
+Assert("'He said \\'Hello\\''", "He said 'Hello'", ref suc, ref fail);           // Escape single quotes in single-quoted string
+Assert("\"He said 'Hello'\"", "He said 'Hello'", ref suc, ref fail);             // Unescaped single quotes in double-quoted string
+Assert("'He said \"Hello\"'", "He said \"Hello\"", ref suc, ref fail);           // Unescaped double quotes in single-quoted string
+
+// Mixed with other expressions
+Assert("\"The sum is: \" .. (1 + 2)", "The sum is: 3", ref suc, ref fail);
+Assert("'Value: ' .. true", "Value: True", ref suc, ref fail);
+
+// String in function calls
+// Assert("Format('Result: {0}', 42)", "Result: 42", ref suc, ref fail, context);
+// Assert("Format(\"x = {0}, y = {1}\", 1, 2)", "x = 1, y = 2", ref suc, ref fail, context);
+
 ForegroundColor = fail > 0 ? ConsoleColor.Red : ConsoleColor.Green;
 WriteLine($"Total: {suc + fail} Suc: {suc} Fail: {fail}");
 ResetColor();

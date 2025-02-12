@@ -14,6 +14,7 @@ public partial class Compiler
 		Integer,
 		Number,
 		Boolean,
+		String,
 		Operator,
 		LeftParen,
 		RightParen,
@@ -34,21 +35,56 @@ public partial class Compiler
 		}
 		
 		public required Func<char> Peek { get; init; }
+		public required Func<int32, char> PeekWithOffset { get; init; }
 		public required Func<int32, string> PeekWord { get; init; }
 		public required Func<char> Next { get; init; }
-		public required Func<char, char> Expect { get; init; }
 		public required Func<Exception> Exception { get; init; }
+	}
+	
+	private static string Trim(string expression)
+	{
+		StringBuilder sb = new();
+		char quote = '\0';
+		for (int32 i = 0; i < expression.Length; ++i)
+		{
+			char c = expression[i];
+			if (c is '"' or '\'')
+			{
+				if (quote is '\0')
+				{
+					quote = c;
+				}
+				else if (c == quote && (expression[i - 1] != '\\' || expression[i - 2] == '\\' /* NOTE: i > 1 is always true here. */))
+				{
+					quote = '\0';
+				}
+			}
+			
+			if (quote is '\0' && c is ' ')
+			{
+				continue;
+			}
+			
+			sb.Append(c);
+		}
+		
+		if (quote is not '\0')
+		{
+			throw new ArgumentException($"Unterminated string in expression: {expression}", nameof(expression));
+		}
+		
+		return sb.ToString();
 	}
 
 	private IEnumerable<Token> Tokenize(string expression)
 	{
-		string trimmed = expression.Replace(" ", "");
+		string trimmed = Trim(expression);
 		int32 i = 0;
-
 		Func<Exception> exception = () => new ArgumentException($"Expression '{expression}' is illegal.", nameof(expression));
 		LexerContext context = new()
 		{
 			Peek = () => i < trimmed.Length ? trimmed[i] : '\0',
+			PeekWithOffset = offset => i + offset < trimmed.Length ? trimmed[i + offset] : '\0',
 			PeekWord = maxNumLetters =>
 			{
 				StringBuilder sb = new();
@@ -63,35 +99,15 @@ public partial class Compiler
 				return sb.ToString();
 			},
 			Next = () => i < trimmed.Length ? trimmed[i++] : '\0',
-			Expect = expected => trimmed[i++] == expected ? expected : throw exception(),
 			Exception = exception,
 		};
-
+		
 		while (i < trimmed.Length)
 		{
 			char c = context.Peek();
 			if (c is '\0')
 			{
 				break;
-			}
-			else if (c is '(')
-			{
-				context.Eat();
-				yield return new(ETokenType.LeftParen, string.Empty);
-			}
-			else if (c is ')')
-			{
-				context.Eat();
-				yield return new(ETokenType.RightParen, string.Empty);
-			}
-			else if (c is ',')
-			{
-				context.Eat();
-				yield return new(ETokenType.Comma, string.Empty);
-			}
-			else if (c is '+' or '-' or '*' or '/' or '^' or '%' or '=' or '!' or '>' or '<' or '&' or '|')
-			{
-				yield return ReadOperatorToken(context);
 			}
 			else if (char.IsDigit(c))
 			{
@@ -110,30 +126,34 @@ public partial class Compiler
 					yield return ReadIdentifierToken(context);
 				}
 			}
+			else if (c is '"' or '\'')
+			{
+				yield return ReadStringToken(context);
+			}
+			else if (c is '+' or '-' or '*' or '/' or '^' or '%' or '=' or '!' or '>' or '<' or '&' or '|' or '.')
+			{
+				yield return ReadOperatorToken(context);
+			}
+			else if (c is '(')
+			{
+				context.Eat();
+				yield return new(ETokenType.LeftParen, string.Empty);
+			}
+			else if (c is ')')
+			{
+				context.Eat();
+				yield return new(ETokenType.RightParen, string.Empty);
+			}
+			else if (c is ',')
+			{
+				context.Eat();
+				yield return new(ETokenType.Comma, string.Empty);
+			}
 			else
 			{
 				throw context.Exception();
 			}
 		}
-	}
-
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private Token ReadOperatorToken(in LexerContext context)
-	{
-		char first = context.Next();
-		char second = context.Peek();
-		
-		return first switch
-		{
-			'=' when second == '=' => new(ETokenType.Operator, "=" + context.Next()),
-			'!' when second == '=' => new(ETokenType.Operator, "!" + context.Next()),
-			'>' when second == '=' => new(ETokenType.Operator, ">" + context.Next()),
-			'<' when second == '=' => new(ETokenType.Operator, "<" + context.Next()),
-			'&' when second == '&' => new(ETokenType.Operator, "&" + context.Next()),
-			'|' when second == '|' => new(ETokenType.Operator, "|" + context.Next()),
-			'+' or '-' or '*' or '/' or '^' or '%' or '>' or '<' or '!' => new(ETokenType.Operator, first.ToString()),
-			_ => throw context.Exception()
-		};
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -153,6 +173,12 @@ public partial class Compiler
 		{
 			if (c is '.')
 			{
+				// String concat operator
+				if (context.PeekWithOffset(1) is '.')
+				{
+					break;
+				}
+				
 				if (state != STATE_INTEGER)
 				{
 					throw context.Exception();
@@ -209,6 +235,71 @@ public partial class Compiler
 		}
 
 		return new(type, sb.ToString());
+	}
+	
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private Token ReadStringToken(in LexerContext context)
+	{
+		char quote = context.Next();
+		StringBuilder sb = new();
+		bool escaped = false;
+		while (true)
+		{
+			char c = context.Next();
+			if (c is '\0')
+			{
+				throw context.Exception();
+			}
+			
+			if (escaped)
+			{
+				char escapedChar = c switch
+				{
+					'n' => '\n',
+					'r' => '\r',
+					't' => '\t',
+					'\\' => '\\',
+					_ when c == quote => c,
+					_ => throw context.Exception()
+				};
+				sb.Append(escapedChar);
+				escaped = false;
+			}
+			else if (c == '\\')
+			{
+				escaped = true;
+			}
+			else if (c == quote)
+			{
+				break;
+			}
+			else
+			{
+				sb.Append(c);
+			}
+		}
+		
+		return new(ETokenType.String, sb.ToString());
+	}
+	
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private Token ReadOperatorToken(in LexerContext context)
+	{
+		char first = context.Next();
+		char second = context.Peek();
+		
+		return first switch
+		{
+			'=' when second == '=' => new(ETokenType.Operator, "=" + context.Next()),
+			'!' when second == '=' => new(ETokenType.Operator, "!" + context.Next()),
+			'>' when second == '=' => new(ETokenType.Operator, ">" + context.Next()),
+			'<' when second == '=' => new(ETokenType.Operator, "<" + context.Next()),
+			'&' when second == '&' => new(ETokenType.Operator, "&" + context.Next()),
+			'|' when second == '|' => new(ETokenType.Operator, "|" + context.Next()),
+			'.' when second == '.' => new(ETokenType.Operator, "." + context.Next()),
+			'+' or '-' or '*' or '/' or '^' or '%' or '>' or '<' or '!' => new(ETokenType.Operator, first.ToString()),
+			_ => throw context.Exception()
+		};
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]

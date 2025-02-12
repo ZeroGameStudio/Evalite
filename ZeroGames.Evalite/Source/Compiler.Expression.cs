@@ -34,7 +34,7 @@ public partial class Compiler
 			throw new ArgumentException($"Duplicated parameter names: {duplicatedParameterNames}", nameof(parameters));
 		}
 
-		IEnumerable<Node> rpn = ConvertToRpn(Tokenize(expression));
+		IEnumerable<Node> rpn = Parse(Tokenize(expression));
 		Expression body = BuildExpressionTree(rpn, returnType, parameters, context, out var parameterExpressions);
 		Type delegateType = Expression.GetFuncType(parameters.Select(p => p.Type).Append(returnType).ToArray());
 		return Expression.Lambda(delegateType, body, parameterExpressions).Compile();
@@ -69,6 +69,11 @@ public partial class Compiler
 				case ENodeType.Boolean:
 				{
 					ProcessBooleanNode(expressionContext);
+					break;
+				}
+				case ENodeType.String:
+				{
+					ProcessStringNode(expressionContext);
 					break;
 				}
 				case ENodeType.Operator:
@@ -112,6 +117,10 @@ public partial class Compiler
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void ProcessBooleanNode(in ExpressionContext context)
 		=> context.Stack.Push(Expression.Constant(bool.Parse(context.CurrentNode.Value)));
+	
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private void ProcessStringNode(in ExpressionContext context)
+		=> context.Stack.Push(Expression.Constant(context.CurrentNode.Value));
 	
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void ProcessOperatorNode(in ExpressionContext context)
@@ -160,9 +169,13 @@ public partial class Compiler
 				"&&" => Expression.AndAlso(left, right),
 				"||" => Expression.OrElse(left, right),
 				
+				// String operators
+				// Expression.Add doesn't work...
+				".." => Expression.Call(_stringConcat, left.CallToString(), right.CallToString()),
+				
 				_ => throw new NotSupportedException($"Operator {op} is not supported.")
 			};
-
+			
 			context.Stack.Push(operation);
 		}
 	}
@@ -242,6 +255,7 @@ public partial class Compiler
 
 	private static readonly MethodInfo _contextCall = typeof(IContext).GetMethod(nameof(IContext.Call))!;
 	private static readonly MethodInfo _contextRead = typeof(IContext).GetMethod(nameof(IContext.Read))!;
+	private static readonly MethodInfo _stringConcat = typeof(string).GetMethod(nameof(string.Concat), [ typeof(string), typeof(string) ])!;
 
 }
 

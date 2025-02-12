@@ -26,8 +26,11 @@ public static class ExpressionExtensions
 	
 	public static Expression As<T>(this Expression @this) => As(@this, typeof(T));
 
-	private static readonly MethodInfo _convertChangeType = typeof(Convert).GetMethod(nameof(Convert.ChangeType), [typeof(object), typeof(Type)])!;
+	public static Expression CallToString(this Expression @this) => @this.Type == typeof(string) ? @this : Expression.Call(@this, _objectToString);
 
+	private static readonly MethodInfo _convertChangeType = typeof(Convert).GetMethod(nameof(Convert.ChangeType), [typeof(object), typeof(Type)])!;
+	private static readonly MethodInfo _objectToString = typeof(object).GetMethod(nameof(ToString))!;
+	
 }
 
 
