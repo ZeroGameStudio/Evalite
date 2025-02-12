@@ -141,7 +141,7 @@ public partial class Compiler
 		{
 			Expression right = context.Stack.Pop();
 			Expression left = context.Stack.Pop();
-			bool useIntegerOperators = left.Type.IsInteger() && right.Type.IsInteger();
+			bool useIntegerOperators = left.Type.IsInteger() && right.Type.IsInteger() && AvailableFeatures.HasFlag(ECompilerFeatures.Integer);
 			bool useDecimalOperators = AvailableFeatures.HasFlag(ECompilerFeatures.Decimal);
 			Expression operation = op switch
 			{
