@@ -26,10 +26,20 @@ internal static class ExpressionExtensions
 	
 	public static Expression As<T>(this Expression @this) => As(@this, typeof(T));
 
-	public static Expression CallToString(this Expression @this) => @this.Type == typeof(string) ? @this : Expression.Call(@this, _objectToString);
+	public static Expression CallToString(this Expression @this) => @this.Type == typeof(string) ? @this : Expression.Call(_objectToString, @this.As<object>());
+
+	private static string WrappedToString(object target)
+	{
+		if (Type.GetTypeCode(target.GetType()) is TypeCode.Object)
+		{
+			throw new NotSupportedException($"Unable to convert user type '{target.GetType()}' to string.");
+		}
+		
+		return target.ToString() ?? string.Empty;
+	}
 
 	private static readonly MethodInfo _convertChangeType = typeof(Convert).GetMethod(nameof(Convert.ChangeType), [typeof(object), typeof(Type)])!;
-	private static readonly MethodInfo _objectToString = typeof(object).GetMethod(nameof(ToString))!;
+	private static readonly MethodInfo _objectToString = typeof(ExpressionExtensions).GetMethod(nameof(WrappedToString), BindingFlags.NonPublic | BindingFlags.Static)!;
 	
 }
 
