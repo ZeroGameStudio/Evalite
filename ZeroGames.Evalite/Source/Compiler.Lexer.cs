@@ -39,10 +39,16 @@ public partial class Compiler
 		public required Func<int32, string> PeekWord { get; init; }
 		public required Func<char> Next { get; init; }
 		public required Func<Exception> Exception { get; init; }
+		public required Action<ECompilerFeatures> RequireFeatures { get; init; }
 	}
 	
-	private static string Trim(string expression)
+	private string Trim(string expression)
 	{
+		if (!AvailableFeatures.HasFlag(ECompilerFeatures.String))
+		{
+			return expression.Replace(" ", string.Empty);
+		}
+		
 		StringBuilder sb = new();
 		char quote = '\0';
 		for (int32 i = 0; i < expression.Length; ++i)
@@ -100,6 +106,13 @@ public partial class Compiler
 			},
 			Next = () => i < trimmed.Length ? trimmed[i++] : '\0',
 			Exception = exception,
+			RequireFeatures = features =>
+			{
+				if (!AvailableFeatures.HasFlag(features))
+				{
+					throw new NotSupportedException($"Feature {features} is unavailable for this compiler instance.");
+				}
+			},
 		};
 		
 		while (i < trimmed.Length)
@@ -118,6 +131,8 @@ public partial class Compiler
 				string word = context.PeekWord(5);
 				if (word is "true" or "false")
 				{
+					context.RequireFeatures(ECompilerFeatures.Boolean);
+					
 					context.Eat(word.Length);
 					yield return new(ETokenType.Boolean, word);
 				}
@@ -128,6 +143,8 @@ public partial class Compiler
 			}
 			else if (c is '"' or '\'')
 			{
+				context.RequireFeatures(ECompilerFeatures.String);
+				
 				yield return ReadStringToken(context);
 			}
 			else if (c is '+' or '-' or '*' or '/' or '^' or '%' or '=' or '!' or '>' or '<' or '&' or '|' or '.')
@@ -221,10 +238,11 @@ public partial class Compiler
 			}
 		}
 
+		bool integerAvailable = AvailableFeatures.HasFlag(ECompilerFeatures.Integer);
 		ETokenType type = state switch
 		{
-			STATE_INTEGER => ETokenType.Integer,
-			STATE_NUMBER or STATE_SCIENCE_NUMBER => ETokenType.Number,
+			STATE_INTEGER when integerAvailable => ETokenType.Integer,
+			STATE_INTEGER or STATE_NUMBER or STATE_SCIENCE_NUMBER => ETokenType.Number,
 			_ => throw context.Exception()
 		};
 
@@ -288,7 +306,7 @@ public partial class Compiler
 		char first = context.Next();
 		char second = context.Peek();
 		
-		return first switch
+		Token token = first switch
 		{
 			'=' when second == '=' => new(ETokenType.Operator, "=" + context.Next()),
 			'!' when second == '=' => new(ETokenType.Operator, "!" + context.Next()),
@@ -300,6 +318,18 @@ public partial class Compiler
 			'+' or '-' or '*' or '/' or '^' or '%' or '>' or '<' or '!' => new(ETokenType.Operator, first.ToString()),
 			_ => throw context.Exception()
 		};
+
+		string op = token.Value;
+		if (op is "&&" or "||" or "!" or "==" or "!=" or ">" or "<" or ">=" or "<=")
+		{
+			context.RequireFeatures(ECompilerFeatures.Boolean);
+		}
+		else if (op is "..")
+		{
+			context.RequireFeatures(ECompilerFeatures.String);
+		}
+
+		return token;
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -319,6 +349,8 @@ public partial class Compiler
 			}
 			else if (c is '.')
 			{
+				context.RequireFeatures(ECompilerFeatures.Member);
+				
 				if (!allowsSeparator)
 				{
 					throw context.Exception();

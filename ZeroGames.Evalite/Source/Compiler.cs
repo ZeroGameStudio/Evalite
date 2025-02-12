@@ -2,7 +2,7 @@
 
 namespace ZeroGames.Evalite;
 
-public partial class Compiler
+public sealed partial class Compiler(ECompilerFeatures availableFeatures = ECompilerFeatures.Common)
 {
 
 	public Func<TResult> Compile<TResult>(string expression, IContext? context = null) => 
@@ -28,6 +28,8 @@ public partial class Compiler
 
 	public Func<T1, T2, T3, T4, T5, T6, T7, TResult> Compile<T1, T2, T3, T4, T5, T6, T7, TResult>(string expression, string parameterName1, string parameterName2, string parameterName3, string parameterName4, string parameterName5, string parameterName6, string parameterName7, IContext? context = null) => 
 		(Func<T1, T2, T3, T4, T5, T6, T7, TResult>)InternalCompile(expression, context, typeof(TResult), new(typeof(T1), parameterName1), new(typeof(T2), parameterName2), new(typeof(T3), parameterName3), new(typeof(T4), parameterName4), new(typeof(T5), parameterName5), new(typeof(T6), parameterName6), new(typeof(T7), parameterName7));
+
+	public ECompilerFeatures AvailableFeatures { get; } = availableFeatures;
 
 }
 

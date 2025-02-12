@@ -141,20 +141,29 @@ public partial class Compiler
 		{
 			Expression right = context.Stack.Pop();
 			Expression left = context.Stack.Pop();
-			bool sameType = left.Type == right.Type;
+			bool useIntegerOperators = left.Type.IsInteger() && right.Type.IsInteger();
+			bool useDecimalOperators = AvailableFeatures.HasFlag(ECompilerFeatures.Decimal);
 			Expression operation = op switch
 			{
 				// Arithmetic operators
-				"+" when sameType => Expression.Add(left, right),
-				"-" when sameType => Expression.Subtract(left, right),
-				"*" when sameType => Expression.Multiply(left, right),
-				"/" when sameType => Expression.Divide(left, right),
-				"%" when sameType => Expression.Modulo(left, right),
+				"+" when useIntegerOperators => Expression.Add(left.As<int64>(), right.As<int64>()),
+				"-" when useIntegerOperators => Expression.Subtract(left.As<int64>(), right.As<int64>()),
+				"*" when useIntegerOperators => Expression.Multiply(left.As<int64>(), right.As<int64>()),
+				"/" when useIntegerOperators => Expression.Divide(left.As<int64>(), right.As<int64>()),
+				"%" when useIntegerOperators => Expression.Modulo(left.As<int64>(), right.As<int64>()),
+				
+				"+" when useDecimalOperators => Expression.Add(left.As<decimal>(), right.As<decimal>()),
+				"-" when useDecimalOperators => Expression.Subtract(left.As<decimal>(), right.As<decimal>()),
+				"*" when useDecimalOperators => Expression.Multiply(left.As<decimal>(), right.As<decimal>()),
+				"/" when useDecimalOperators => Expression.Divide(left.As<decimal>(), right.As<decimal>()),
+				"%" when useDecimalOperators => Expression.Modulo(left.As<decimal>(), right.As<decimal>()),
+				
 				"+" => Expression.Add(left.As<double>(), right.As<double>()),
 				"-" => Expression.Subtract(left.As<double>(), right.As<double>()),
 				"*" => Expression.Multiply(left.As<double>(), right.As<double>()),
 				"/" => Expression.Divide(left.As<double>(), right.As<double>()),
 				"%" => Expression.Modulo(left.As<double>(), right.As<double>()),
+				
 				"^" => Expression.Power(left.As<double>(), right.As<double>()),
 				
 				// Relation operators

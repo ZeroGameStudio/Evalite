@@ -5,7 +5,7 @@ using System.Reflection;
 
 namespace ZeroGames.Evalite;
 
-public static class ExpressionExtensions
+internal static class ExpressionExtensions
 {
 
 	public static Expression As(this Expression @this, Type targetType)
