@@ -28,4 +28,8 @@
       <ProjectReference Include="..\ZeroGames.Evalite\ZeroGames.Evalite.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Source\Misc\" />
+    </ItemGroup>
+
 </Project>

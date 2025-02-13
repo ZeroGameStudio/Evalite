@@ -339,25 +339,25 @@ public partial class Compiler
 		sb.Append(context.Next());
 		
 		char c;
-		bool allowsSeparator = true;
+		bool allowSeparator = true;
 		while ((c = context.Peek()) != '\0')
 		{
 			if (char.IsLetterOrDigit(c) || c is '_')
 			{
 				sb.Append(context.Next());
-				allowsSeparator = true;
+				allowSeparator = true;
 			}
 			else if (c is '.')
 			{
 				context.RequireFeatures(ECompilerFeatures.Member);
 				
-				if (!allowsSeparator)
+				if (!allowSeparator)
 				{
 					throw context.Exception();
 				}
 				
 				sb.Append(context.Next());
-				allowsSeparator = false;
+				allowSeparator = false;
 			}
 			else
 			{
@@ -365,7 +365,7 @@ public partial class Compiler
 			}
 		}
 		
-		if (!allowsSeparator)
+		if (!allowSeparator)
 		{
 			throw context.Exception();
 		}

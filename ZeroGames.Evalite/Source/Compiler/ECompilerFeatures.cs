@@ -11,30 +11,30 @@ public enum ECompilerFeatures : uint64
 	Minimal = 0,
 	
 	/// <summary>
-	/// Use int64 operations if all operands are of integer type.
+	/// Uses int64 arithmetic operations if all operands are of integer type.
 	/// </summary>
 	Integer = 1 << 0,
 	
 	/// <summary>
-	/// Use decimal instead of double.
+	/// Uses decimal instead of double arithmetic operators.
 	/// </summary>
 	Decimal = 1 << 1,
 	
 	/// <summary>
-	/// Enable 'true' and 'false' literal, logic and relation operators (&amp;&amp;, ||, !, ==, !=, &gt;, &lt;, &gt;=, &lt;=).
+	/// Enables 'true' and 'false' literal, logic and relation operators (&amp;&amp;, ||, !, ==, !=, &gt;, &lt;, &gt;=, &lt;=).
 	/// </summary>
 	Boolean = 1 << 2,
 	
 	/// <summary>
-	/// Enable string literal and concat operator (..).
+	/// Enables string literal and concat operator (..).
 	/// </summary>
 	String = 1 << 3,
 	
 	/// <summary>
-	/// Enable nested context and member access operator (.).
+	/// Enables context member and member access operator (.).
 	/// </summary>
 	/// <remarks>
-	/// Return value of nested context has no static type, which can affect operator overload policy.
+	/// Return value of context member has no static type, which can affect operator overload policy.
 	/// </remarks>
 	Member = 1 << 4,
 	

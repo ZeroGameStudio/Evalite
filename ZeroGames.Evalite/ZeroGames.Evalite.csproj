@@ -23,4 +23,8 @@
         <Using Include="System.Int64" Alias="int64" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Source\Misc\" />
+    </ItemGroup>
+
 </Project>
