@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ZeroGames.Evalite.Test/ZeroGames.Evalite.Test.csproj" />
+  <Project Path="ZeroGames.Evalite/ZeroGames.Evalite.csproj" />
+</Solution>

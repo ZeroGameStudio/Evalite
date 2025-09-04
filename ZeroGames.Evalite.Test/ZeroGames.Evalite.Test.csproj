@@ -1,4 +1,4 @@
-﻿<Project Sdk="ZeroGames.NET.Sdk/1.0.0-beta.1">
+﻿<Project Sdk="ZeroGames.NET.Sdk/1.0.0">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -14,10 +14,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\ZeroGames.Evalite\ZeroGames.Evalite.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Source\Misc\" />
     </ItemGroup>
 
 </Project>

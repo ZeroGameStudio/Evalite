@@ -20,7 +20,7 @@ public partial class Compiler
 		public required Dictionary<string, Expression> ParameterMap { get; init; }
 	}
 	
-	private object InternalCompile(string expression, IContext? context, Type returnType, params Parameter[] parameters)
+	private Delegate InternalCompile(string expression, IContext? context, Type returnType, params Parameter[] parameters)
 	{
 		string invalidParameterNames = string.Join(", ", parameters.Where(p => !_identifierRegex.IsMatch(p.Name)));
 		if (!string.IsNullOrWhiteSpace(invalidParameterNames))
@@ -37,6 +37,23 @@ public partial class Compiler
 		IEnumerable<Node> rpn = Parse(Tokenize(expression));
 		Expression body = BuildExpressionTree(rpn, returnType, parameters, context, out var parameterExpressions);
 		Type delegateType = Expression.GetFuncType(parameters.Select(p => p.Type).Append(returnType).ToArray());
+		return Expression.Lambda(delegateType, body, parameterExpressions).Compile();
+	}
+
+	private Delegate InternalCompileDelegate<TDelegate>(string expression, IContext? context) where TDelegate : Delegate
+	{
+		Type delegateType = typeof(TDelegate);
+		MethodInfo signature = delegateType.GetMethod(nameof(Action.Invoke))!;
+		Type returnType = signature.ReturnType;
+		if (returnType == typeof(void))
+		{
+			throw new ArgumentException($"Invalid delegate type: {typeof(TDelegate).Name}");
+		}
+
+		Parameter[] parameters = signature.GetParameters().Select(p => new Parameter(p.ParameterType, p.Name ?? throw new ArgumentException("Invalid parameter name."))).ToArray();
+		
+		IEnumerable<Node> rpn = Parse(Tokenize(expression));
+		Expression body = BuildExpressionTree(rpn, returnType, parameters, context, out var parameterExpressions);
 		return Expression.Lambda(delegateType, body, parameterExpressions).Compile();
 	}
 	
@@ -265,7 +282,7 @@ public partial class Compiler
 	private static readonly MethodInfo _contextCall = typeof(IContext).GetMethod(nameof(IContext.Call))!;
 	private static readonly MethodInfo _contextRead = typeof(IContext).GetMethod(nameof(IContext.Read))!;
 	private static readonly MethodInfo _stringConcat = typeof(string).GetMethod(nameof(string.Concat), [ typeof(string), typeof(string) ])!;
-
+	
 }
 
 
