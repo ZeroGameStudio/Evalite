@@ -238,7 +238,7 @@ public partial class Compiler
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void ProcessVariableNode(in ExpressionContext context)
 	{
-		Expression expression = ProcessPath(context.CurrentNode.Value.Split('.'), context);
+		Expression expression = ProcessPath(AvailableFeatures.HasFlag(ECompilerFeatures.PathIdentifier) ? [context.CurrentNode.Value] : context.CurrentNode.Value.Split('.'), context);
 		context.Stack.Push(expression);
 	}
 

@@ -1,4 +1,6 @@
-﻿using ZeroGames.Evalite;
+﻿// Copyright Zero Games. All Rights Reserved.
+
+using ZeroGames.Evalite;
 
 Compiler compiler = new();
 StaticLibraryContext mathContext = new(typeof(Math));
@@ -30,7 +32,7 @@ static class Constants
 	public static double Pi => Math.PI;
 }
 
-class Context : ReflectiveContextBase
+class Context : ReflectionContextBase
 {
 	
 	public static double Sqrt(double x) => Math.Sqrt(x);
@@ -51,8 +53,6 @@ class Context : ReflectiveContextBase
 	public static double Floor(double x) => Math.Floor(x);
 	public static double Ceiling(double x) => Math.Ceiling(x);
 	public static double Round(double x) => Math.Round(x);
-	
-	public Context() : base(false){}
 	
 }
 

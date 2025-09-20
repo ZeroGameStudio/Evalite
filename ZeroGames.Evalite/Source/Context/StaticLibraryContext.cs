@@ -2,6 +2,6 @@
 
 namespace ZeroGames.Evalite;
 
-public sealed class StaticLibraryContext(Type libraryType) : ReflectiveContextBase(libraryType, null, false);
+public sealed class StaticLibraryContext(Type libraryType) : ReflectionContextBase(libraryType, null);
 
 

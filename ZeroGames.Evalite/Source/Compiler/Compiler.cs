@@ -2,8 +2,18 @@
 
 namespace ZeroGames.Evalite;
 
-public sealed partial class Compiler(ECompilerFeatures availableFeatures = ECompilerFeatures.Common)
+public sealed partial class Compiler
 {
+
+	public Compiler(ECompilerFeatures availableFeatures = ECompilerFeatures.Common)
+	{
+		if (availableFeatures.HasFlag(ECompilerFeatures.Member | ECompilerFeatures.PathIdentifier))
+		{
+			throw new ArgumentOutOfRangeException(nameof(availableFeatures), "Conflict features: Member and PathIdentifier.");
+		}
+
+		AvailableFeatures = availableFeatures;
+	}
 
 	public Func<TResult> Compile<TResult>(string expression, IContext? context = null) => 
 		(Func<TResult>)InternalCompile(expression, context, typeof(TResult));
@@ -32,7 +42,7 @@ public sealed partial class Compiler(ECompilerFeatures availableFeatures = EComp
 	public TDelegate CompileDelegate<TDelegate>(string expression, IContext? context = null) where TDelegate : Delegate
 		=> (TDelegate)InternalCompileDelegate<TDelegate>(expression, context);
 	
-	public ECompilerFeatures AvailableFeatures { get; } = availableFeatures;
+	public ECompilerFeatures AvailableFeatures { get; }
 
 }
 

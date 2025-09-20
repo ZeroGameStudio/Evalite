@@ -5,7 +5,7 @@ using System.Reflection;
 
 namespace ZeroGames.Evalite;
 
-public abstract class ReflectiveContextBase : IContext
+public abstract class ReflectionContextBase : IContext
 {
 	
 	public bool TryCall(string name, [NotNullWhen(true)] out object? result, params object[] parameters)
@@ -75,63 +75,81 @@ public abstract class ReflectiveContextBase : IContext
 
 		return typeof(object);
 	}
+	
+	public bool AllowsPrivateAccess { get; init; }
+	public bool IsCaseInsensitive { get; init; }
 
-	protected ReflectiveContextBase(bool allowPrivateAccess)
+	protected ReflectionContextBase()
 	{
-		Type targetType = GetType();
-		object targetInstance = this;
-		
-		_targetInstance = targetInstance;
-		
-		var bindingFlags = BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
-		if (allowPrivateAccess)
-		{
-			bindingFlags |= BindingFlags.NonPublic;
-		}
-		
-		_typeMetadata = new(targetType, bindingFlags);
+		_targetType = GetType();
+		_targetInstance = this;
 	}
 
-	protected ReflectiveContextBase(Type targetType, object? targetInstance, bool allowPrivateAccess)
+	protected ReflectionContextBase(Type targetType, object? targetInstance)
 	{
+		_targetType = targetType;
 		_targetInstance = targetInstance;
-		
-		var bindingFlags = BindingFlags.Public | BindingFlags.Static;
-		if (targetInstance is not null)
-		{
-			bindingFlags |= BindingFlags.Instance;
-		}
-		if (allowPrivateAccess)
-		{
-			bindingFlags |= BindingFlags.NonPublic;
-		}
-
-		_typeMetadata = new(targetType, bindingFlags);
 	}
 	
-	private bool TryGetMethod(string name, [NotNullWhen(true)] out MethodInfo? method)
-	{
-		return _typeMetadata.MethodCache.TryGetValue(name, out method);
-	}
-
-	private bool TryGetProperty(string name, [NotNullWhen(true)] out PropertyInfo? property)
-	{
-		return _typeMetadata.PropertyCache.TryGetValue(name, out property);
-	}
-
 	private readonly struct TypeMetadata
 	{
 		public TypeMetadata(Type type, BindingFlags bindingFlags)
 		{
-			MethodCache = type.GetMethods(bindingFlags).Where(m => m.ReturnType != typeof(void)).DistinctBy(m => m.Name).ToDictionary(m => m.Name);
-			PropertyCache = type.GetProperties(bindingFlags).Where(p => p.CanRead).ToDictionary(p => p.Name);
+			bool caseInsensitive = bindingFlags.HasFlag(BindingFlags.IgnoreCase);
+			
+			MethodCache = type.GetMethods(bindingFlags)
+				.Where(m => m.ReturnType != typeof(void))
+				.DistinctBy(m => caseInsensitive ? m.Name.ToLower() : m.Name)
+				.ToDictionary(m => caseInsensitive ? m.Name.ToLower() : m.Name);
+			
+			PropertyCache = type.GetProperties(bindingFlags)
+				.Where(p => p.CanRead)
+				.ToDictionary(p => caseInsensitive ? p.Name.ToLower() : p.Name);
 		}
 		
 		public IReadOnlyDictionary<string, MethodInfo> MethodCache { get; }
 		public IReadOnlyDictionary<string, PropertyInfo> PropertyCache { get; }
 	}
 	
+	private bool TryGetMethod(string name, [NotNullWhen(true)] out MethodInfo? method)
+	{
+		return TypeMetadataCache.MethodCache.TryGetValue(IsCaseInsensitive ? name.ToLower() : name, out method);
+	}
+
+	private bool TryGetProperty(string name, [NotNullWhen(true)] out PropertyInfo? property)
+	{
+		return TypeMetadataCache.PropertyCache.TryGetValue(IsCaseInsensitive ? name.ToLower() : name, out property);
+	}
+
+	private TypeMetadata TypeMetadataCache
+	{
+		get
+		{
+			if (_typeMetadataCache is null)
+			{
+				var bindingFlags = BindingFlags.Public | BindingFlags.Static;
+				if (_targetInstance is not null)
+				{
+					bindingFlags |= BindingFlags.Instance;
+				}
+				if (AllowsPrivateAccess)
+				{
+					bindingFlags |= BindingFlags.NonPublic;
+				}
+				if (IsCaseInsensitive)
+				{
+					bindingFlags |= BindingFlags.IgnoreCase;
+				}
+
+				_typeMetadataCache = new(_targetType, bindingFlags);
+			}
+
+			return _typeMetadataCache.Value;
+		}
+	}
+
+	private readonly Type _targetType;
 	private readonly object? _targetInstance;
-	private readonly TypeMetadata _typeMetadata;
+	private TypeMetadata? _typeMetadataCache;
 
 }

@@ -349,7 +349,14 @@ public partial class Compiler
 			}
 			else if (c is '.')
 			{
-				context.RequireFeatures(ECompilerFeatures.Member);
+				try
+				{
+					context.RequireFeatures(ECompilerFeatures.Member);
+				}
+				catch (NotSupportedException)
+				{
+					context.RequireFeatures(ECompilerFeatures.CommonPathIdentifier);
+				}
 				
 				if (!allowSeparator)
 				{

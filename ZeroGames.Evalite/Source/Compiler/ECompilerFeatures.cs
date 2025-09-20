@@ -38,7 +38,15 @@ public enum ECompilerFeatures : uint64
 	/// </remarks>
 	Member = 1 << 4,
 	
-	All = uint64.MaxValue,
+	/// <summary>
+	/// Enables path identifier (a.b.c), can't use together with Member.
+	/// </summary>
+	PathIdentifier = 1 << 5,
+	
+	All = uint64.MaxValue & ~PathIdentifier,
 	
 	Common = All & ~Decimal,
+	CommonPathIdentifier = Common & ~Member | PathIdentifier,
 }
+
+
