@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace ZeroGames.Evalite;
 
-public interface IContext
+public interface IMetatable
 {
 	bool TryCall(string name, [NotNullWhen(true)] out object? result, params object[] parameters);
 	bool TryRead(string name, [NotNullWhen(true)] out object? result);

@@ -16,7 +16,7 @@ internal static class ExpressionExtensions
 			return @this;
 		}
 
-		if (sourceType.IsAssignableTo(targetType) || targetType.IsAssignableTo(typeof(IContext)))
+		if (sourceType.IsAssignableTo(targetType) || targetType.IsAssignableTo(typeof(IMetatable)))
 		{
 			return Expression.Convert(@this, targetType);
 		}

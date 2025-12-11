@@ -16,11 +16,11 @@ public partial class Compiler
 	{
 		public Node CurrentNode { get; set; }
 		public Stack<Expression> Stack { get; } = [];
-		public required IContext? Context { get; init; }
+		public required IMetatable? Metatable { get; init; }
 		public required Dictionary<string, Expression> ParameterMap { get; init; }
 	}
 	
-	private Delegate InternalCompile(string expression, IContext? context, Type returnType, params Parameter[] parameters)
+	private Delegate InternalCompile(string expression, IMetatable? metatable, Type returnType, params Parameter[] parameters)
 	{
 		string invalidParameterNames = string.Join(", ", parameters.Where(p => !_identifierRegex.IsMatch(p.Name)));
 		if (!string.IsNullOrWhiteSpace(invalidParameterNames))
@@ -35,12 +35,12 @@ public partial class Compiler
 		}
 
 		IEnumerable<Node> rpn = Parse(Tokenize(expression));
-		Expression body = BuildExpressionTree(rpn, returnType, parameters, context, out var parameterExpressions);
+		Expression body = BuildExpressionTree(rpn, returnType, parameters, metatable, out var parameterExpressions);
 		Type delegateType = Expression.GetFuncType(parameters.Select(p => p.Type).Append(returnType).ToArray());
 		return Expression.Lambda(delegateType, body, parameterExpressions).Compile();
 	}
 
-	private Delegate InternalCompileDelegate<TDelegate>(string expression, IContext? context) where TDelegate : Delegate
+	private Delegate InternalCompileDelegate<TDelegate>(string expression, IMetatable? context) where TDelegate : Delegate
 	{
 		Type delegateType = typeof(TDelegate);
 		MethodInfo signature = delegateType.GetMethod(nameof(Action.Invoke))!;
@@ -57,14 +57,14 @@ public partial class Compiler
 		return Expression.Lambda(delegateType, body, parameterExpressions).Compile();
 	}
 	
-	private Expression BuildExpressionTree(IEnumerable<Node> rpn, Type type, Parameter[] parameters, IContext? context, out ParameterExpression[] parameterExpressions)
+	private Expression BuildExpressionTree(IEnumerable<Node> rpn, Type type, Parameter[] parameters, IMetatable? context, out ParameterExpression[] parameterExpressions)
 	{
 		parameterExpressions = parameters.Select(p => Expression.Parameter(p.Type, p.Name)).ToArray();
 		Dictionary<string, Expression> parameterMap = parameterExpressions.ToDictionary(p => p.Name!, p => (Expression)p);
 
 		ExpressionContext expressionContext = new()
 		{
-			Context = context,
+			Metatable = context,
 			ParameterMap = parameterMap,
 		};
 		
@@ -209,7 +209,7 @@ public partial class Compiler
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void ProcessFunctionNode(in ExpressionContext context)
 	{
-		if (context.Context is null)
+		if (context.Metatable is null)
 		{
 			throw new ArgumentException("Function call requires a context", nameof(context));
 		}
@@ -225,11 +225,11 @@ public partial class Compiler
 
 		string[] pathNodes = pair[0].Split('.');
 		string functionName = pathNodes[^1];
-		Expression expression = pathNodes.Length > 1 ? ProcessPath(pathNodes.SkipLast(1), context).As<IContext>() : Expression.Constant(context.Context);
+		Expression expression = pathNodes.Length > 1 ? ProcessPath(pathNodes.SkipLast(1), context).As<IMetatable>() : Expression.Constant(context.Metatable);
 		expression = Expression.Call(expression, _contextCall, Expression.Constant(functionName), Expression.NewArrayInit(typeof(object), parameterExpressions));
 		if (pathNodes.Length == 1)
 		{
-			expression = expression.As(context.Context.GetFunctionReturnType(functionName));
+			expression = expression.As(context.Metatable.GetFunctionReturnType(functionName));
 		}
 		
 		context.Stack.Push(expression);
@@ -257,10 +257,10 @@ public partial class Compiler
 				{
 					result = parameterExpression;
 				}
-				else if (context.Context is not null)
+				else if (context.Metatable is not null)
 				{
-					result = Expression.Constant(context.Context);
-					result = Expression.Call(result, _contextRead, Expression.Constant(node)).As(context.Context.GetPropertyType(node));
+					result = Expression.Constant(context.Metatable);
+					result = Expression.Call(result, _contextRead, Expression.Constant(node)).As(context.Metatable.GetPropertyType(node));
 				}
 				else
 				{
@@ -269,7 +269,7 @@ public partial class Compiler
 			}
 			else
 			{
-				result = Expression.Call(result.As<IContext>(), _contextRead, Expression.Constant(node));
+				result = Expression.Call(result.As<IMetatable>(), _contextRead, Expression.Constant(node));
 			}
 		}
 
@@ -279,8 +279,8 @@ public partial class Compiler
 	[GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]*$")]
 	private static partial Regex _identifierRegex { get; }
 
-	private static readonly MethodInfo _contextCall = typeof(IContext).GetMethod(nameof(IContext.Call))!;
-	private static readonly MethodInfo _contextRead = typeof(IContext).GetMethod(nameof(IContext.Read))!;
+	private static readonly MethodInfo _contextCall = typeof(IMetatable).GetMethod(nameof(IMetatable.Call))!;
+	private static readonly MethodInfo _contextRead = typeof(IMetatable).GetMethod(nameof(IMetatable.Read))!;
 	private static readonly MethodInfo _stringConcat = typeof(string).GetMethod(nameof(string.Concat), [ typeof(string), typeof(string) ])!;
 	
 }

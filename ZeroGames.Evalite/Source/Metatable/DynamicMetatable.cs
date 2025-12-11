@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace ZeroGames.Evalite;
 
-public sealed class DynamicContext : IContext
+public sealed class DynamicMetatable : IMetatable
 {
 	
 	public bool TryCall(string name, [NotNullWhen(true)] out object? result, params object[] parameters)

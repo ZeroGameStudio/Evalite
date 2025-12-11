@@ -31,10 +31,10 @@ public enum ECompilerFeatures : uint64
 	String = 1 << 3,
 	
 	/// <summary>
-	/// Enables context member and member access operator (.).
+	/// Enables member access operator (.).
 	/// </summary>
 	/// <remarks>
-	/// Return value of context member has no static type, which can affect operator overload policy.
+	/// Return value of member has no static type, which can affect operator overload policy.
 	/// </remarks>
 	Member = 1 << 4,
 	

@@ -5,7 +5,7 @@ using System.Reflection;
 
 namespace ZeroGames.Evalite;
 
-public abstract class ReflectionContextBase : IContext
+public abstract class ReflectionMetatableBase : IMetatable
 {
 	
 	public bool TryCall(string name, [NotNullWhen(true)] out object? result, params object[] parameters)
@@ -79,13 +79,13 @@ public abstract class ReflectionContextBase : IContext
 	public bool AllowsPrivateAccess { get; init; }
 	public bool IsCaseInsensitive { get; init; }
 
-	protected ReflectionContextBase()
+	protected ReflectionMetatableBase()
 	{
 		_targetType = GetType();
 		_targetInstance = this;
 	}
 
-	protected ReflectionContextBase(Type targetType, object? targetInstance)
+	protected ReflectionMetatableBase(Type targetType, object? targetInstance)
 	{
 		_targetType = targetType;
 		_targetInstance = targetInstance;
